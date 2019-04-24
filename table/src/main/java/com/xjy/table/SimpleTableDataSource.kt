@@ -1,9 +1,8 @@
 package com.xjy.table
 
-import android.content.res.Resources
 import android.widget.TextView
 
-class SimpleTableDataSource : TableDataSource {
+class SimpleTableDataSource : SXTableDataSource {
     override fun configTitle(textView: TextView) {
 
     }
