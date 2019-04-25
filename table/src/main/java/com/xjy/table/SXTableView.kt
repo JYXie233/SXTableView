@@ -14,7 +14,14 @@ import android.view.ViewTreeObserver
 import android.widget.TextView
 
 open class SXTableView : ViewGroup {
-
+    //数据源
+    var dataSource: SXTableDataSource = SimpleTableDataSource()
+    //内边距
+    var borderWidth = Util.dip2px(context, 1)
+    //外边距
+    var outSideBorderWidth = Util.dip2px(context, 5)
+    //文字方向
+    var textGravity:Int = Gravity.CENTER
 
     constructor(context: Context?) : super(context)
     constructor(context: Context?, attrs: AttributeSet?) : super(context, attrs)
@@ -29,7 +36,7 @@ open class SXTableView : ViewGroup {
 
     private val columnClickListeners = mutableListOf<SXTableColumnClick>()
 
-    var textGravity:Int = Gravity.CENTER
+
 
     private val mTitleView by lazy {
         val tv = buildTextView()
@@ -38,11 +45,6 @@ open class SXTableView : ViewGroup {
         tv
     }
 
-    var dataSource: SXTableDataSource = SimpleTableDataSource()
-    var borderWidth = Util.dip2px(context, 1)
-    var outSideBorderWidth = Util.dip2px(context, 5)
-
-    private var fillColumnWidth = 0
 
     init {
 
@@ -86,7 +88,7 @@ open class SXTableView : ViewGroup {
                 tv.tag = row
                 dataSource.configCell(tv, row, column)
                 columnClickListeners.forEach {
-                    if (it.cloumn == column){
+                    if (it.column == column){
                         tv.setOnClickListener(it)
                     }
                 }
@@ -96,8 +98,6 @@ open class SXTableView : ViewGroup {
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val widthMode = View.MeasureSpec.getMode(widthMeasureSpec)
-        val heightMode = View.MeasureSpec.getMode(heightMeasureSpec)
         val sizeWidth = View.MeasureSpec.getSize(widthMeasureSpec)
         val sizeHeight = View.MeasureSpec.getSize(heightMeasureSpec)
 
@@ -124,7 +124,6 @@ open class SXTableView : ViewGroup {
     }
 
     private fun measureTitle(widthMeasureSpec: Int, heightMeasureSpec: Int){
-        val lp = mTitleView.layoutParams
         val childWidthMeasureSpec = getChildMeasureSpec(widthMeasureSpec,
             paddingLeft + paddingRight + outSideBorderWidth * 2, LayoutParams.MATCH_PARENT)
         val childHeightMeasureSpec = getChildMeasureSpec(heightMeasureSpec,

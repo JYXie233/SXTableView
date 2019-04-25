@@ -2,7 +2,7 @@ package com.xjy.table
 
 import android.view.View
 
-class SXTableColumnClick(val cloumn:Int, val listener: SXOnTableColumnClickListener): View.OnClickListener {
+class SXTableColumnClick(val column:Int, val listener: SXOnTableColumnClickListener): View.OnClickListener {
 
     override fun onClick(v: View?) {
         v?.let {
