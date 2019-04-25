@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.os.Build
 import android.support.annotation.RequiresApi
 import android.util.AttributeSet
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -13,6 +14,7 @@ import android.view.ViewTreeObserver
 import android.widget.TextView
 
 open class SXTableView : ViewGroup {
+
 
     constructor(context: Context?) : super(context)
     constructor(context: Context?, attrs: AttributeSet?) : super(context, attrs)
@@ -27,8 +29,7 @@ open class SXTableView : ViewGroup {
 
     private val columnClickListeners = mutableListOf<SXTableColumnClick>()
 
-    private val map = mutableMapOf<String, View>()
-    private val resetMap = mutableMapOf<View, Size>()
+    var textGravity:Int = Gravity.CENTER
 
     private val mTitleView by lazy {
         val tv = buildTextView()
@@ -39,6 +40,7 @@ open class SXTableView : ViewGroup {
 
     var dataSource: SXTableDataSource = SimpleTableDataSource()
     var borderWidth = Util.dip2px(context, 1)
+    var outSideBorderWidth = Util.dip2px(context, 5)
 
     private var fillColumnWidth = 0
 
@@ -55,294 +57,336 @@ open class SXTableView : ViewGroup {
         })
     }
 
-    private var resetSize = true
 
 
     fun addColumnClickListener(column: Int, listener: SXOnTableColumnClickListener) {
         columnClickListeners.add(SXTableColumnClick(column, listener))
     }
 
-    private fun realReload() {
-        resetMap.clear()
-        resetSize = true
+    fun reload() {
         removeAllViews()
-        map.clear()
-        var index = 0
-        addView(mTitleView, index)
+        var viewIndex = 0
+        addView(mTitleView, viewIndex)
         mTitleView.text = dataSource.title()
         dataSource.configTitle(mTitleView)
-        for (i in 0 until dataSource.numOfColumn()) {
-            index++
+        viewIndex ++
+
+        for (column in 0 until dataSource.numOfColumn()) {
             val tv = buildTextView()
-            tv.text = dataSource.titleOfColumn(i)
-            val lp = tv.layoutParams
-            val w = dataSource.widthOfCell(i)
-            if (w != -1) {
-                lp.width = w
-            } else {
-                lp.width = fillColumnWidth
-            }
-            tv.layoutParams = lp
-            dataSource.configColumnHeader(tv, i)
-            addView(tv, index)
+            tv.text = dataSource.titleOfColumn(column)
+            dataSource.configColumnHeader(tv, column)
+            addView(tv, viewIndex)
+            viewIndex ++
         }
+
         for (row in 0 until dataSource.numOfRow()) {
             for (column in 0 until dataSource.numOfColumn()) {
-                index++
                 val tv = buildTextView()
-
-                val lp = tv.layoutParams
-                val w = dataSource.widthOfCell(column)
-                if (w != -1) {
-                    lp.width = w
-                } else {
-                    lp.width = fillColumnWidth
-                }
-                tv.layoutParams = lp
+                addView(tv, viewIndex)
+                tv.tag = row
                 dataSource.configCell(tv, row, column)
                 columnClickListeners.forEach {
-                    if (it.cloumn == column) {
-                        tv.tag = row
+                    if (it.cloumn == column){
                         tv.setOnClickListener(it)
                     }
                 }
-                addView(tv, index)
-
+                viewIndex++
             }
         }
     }
 
-    fun reload() {
-        resetMap.clear()
-        resetSize = true
-        removeAllViews()
-        map.clear()
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val widthMode = View.MeasureSpec.getMode(widthMeasureSpec)
+        val heightMode = View.MeasureSpec.getMode(heightMeasureSpec)
+        val sizeWidth = View.MeasureSpec.getSize(widthMeasureSpec)
+        val sizeHeight = View.MeasureSpec.getSize(heightMeasureSpec)
 
-        var index = 0
-        addView(mTitleView, index)
-        mTitleView.text = dataSource.title()
-        dataSource.configTitle(mTitleView)
-        for (i in 0 until dataSource.numOfColumn()) {
-            index++
-            val tv = buildTextView()
-            tv.text = dataSource.titleOfColumn(i)
-            val lp = tv.layoutParams
-            val w = dataSource.widthOfCell(i)
-            if (w != -1) {
-                lp.width = w
-            } else {
-                lp.width = ViewGroup.LayoutParams.WRAP_CONTENT
-            }
-            tv.layoutParams = lp
-            addView(tv, index)
+        setMeasuredDimension(sizeWidth, sizeHeight)
+
+        measureTitle(widthMeasureSpec, heightMeasureSpec)
+
+        var allHeight = mTitleView.measuredHeight + outSideBorderWidth * 2
+
+        val columnHeaderHeight = measureColumnHeader(widthMeasureSpec, heightMeasureSpec)
+
+        allHeight += columnHeaderHeight
+
+        for (row in 0 until dataSource.numOfRow()){
+            allHeight += measureRow(row, widthMeasureSpec, heightMeasureSpec) + borderWidth
         }
-        calFill()
-        realReload()
+
+        for (row in 0 until dataSource.numOfRow()){
+            measureRowFix(row, widthMeasureSpec, heightMeasureSpec)
+        }
+
+        setMeasuredDimension(sizeWidth, allHeight)
+
+    }
+
+    private fun measureTitle(widthMeasureSpec: Int, heightMeasureSpec: Int){
+        val lp = mTitleView.layoutParams
+        val childWidthMeasureSpec = getChildMeasureSpec(widthMeasureSpec,
+            paddingLeft + paddingRight + outSideBorderWidth * 2, LayoutParams.MATCH_PARENT)
+        val childHeightMeasureSpec = getChildMeasureSpec(heightMeasureSpec,
+            paddingTop + paddingBottom, LayoutParams.WRAP_CONTENT)
+        mTitleView.measure(childWidthMeasureSpec, childHeightMeasureSpec)
+    }
+
+    private fun measureColumnHeader(widthMeasureSpec: Int, heightMeasureSpec: Int):Int{
+        var childWidthMeasureSpec = 0
+        var childHeightMeasureSpec = 0
+        var lp = mTitleView.layoutParams
+        var viewIndex = 1
+        var unMeasureViews = mutableListOf<View>()
+        var allExactlyWidth = 0//自定义的宽度
+        var rowViews = mutableListOf<View>()
+        for (columnIndex in 0 until dataSource.numOfColumn()){
+            val child = getChildAt(viewIndex)
+            lp = child.layoutParams
+            val cWidth = dataSource.widthOfCell(columnIndex)
+            if (cWidth == -1){
+                unMeasureViews.add(child)
+            } else {
+                childWidthMeasureSpec = getChildMeasureSpec(widthMeasureSpec, borderWidth, cWidth)
+                childHeightMeasureSpec = getChildMeasureSpec(widthMeasureSpec, borderWidth, lp.height)
+                child.measure(childWidthMeasureSpec, childHeightMeasureSpec)
+                allExactlyWidth += child.measuredWidth
+            }
+            rowViews.add(child)
+            viewIndex ++
+        }
+        val canDistributionWidth = measuredWidth - outSideBorderWidth * 2 - borderWidth * (dataSource.numOfColumn() - 1) - allExactlyWidth
+        val childFillModeWidth = canDistributionWidth / unMeasureViews.count()
+
+        unMeasureViews.forEach {
+            lp = it.layoutParams
+            childWidthMeasureSpec = getChildMeasureSpec(widthMeasureSpec, borderWidth, childFillModeWidth)
+            childHeightMeasureSpec = getChildMeasureSpec(widthMeasureSpec, borderWidth, lp.height)
+            it.measure(childWidthMeasureSpec, childHeightMeasureSpec)
+        }
+        var columnHeight = 0
+        rowViews.forEach {
+            columnHeight = Math.max(it.measuredHeight, columnHeight)
+        }
+
+        rowViews.forEach {
+            childWidthMeasureSpec = getChildMeasureSpec(widthMeasureSpec, 0, it.measuredWidth)
+            childHeightMeasureSpec = getChildMeasureSpec(widthMeasureSpec, 0, columnHeight)
+            it.measure(childWidthMeasureSpec, childHeightMeasureSpec)
+        }
+        return columnHeight
+    }
+
+    private fun measureRowFix(row: Int, widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val viewIndex = (row + 1) * dataSource.numOfColumn() + 1
+        val rowCount = dataSource.numOfRow()
+        for (columnIndex in 0 until dataSource.numOfColumn()) {
+            val currentId = dataSource.idOfCell(row, columnIndex)
+            val child = getChildAt(viewIndex + columnIndex)
+            if (isTheFirstSameRow(row, columnIndex, child)) {
+                var allSameRowHeight = 0
+                for (r in row until rowCount) {
+                    val nextRowId = dataSource.idOfCell(r, columnIndex)
+                    if (nextRowId == currentId) {
+                        val rowHeight = getRowHeight(r)
+                        allSameRowHeight += rowHeight + borderWidth
+                    } else {
+                        break
+                    }
+                }
+                val childWidthMeasureSpec = getChildMeasureSpec(widthMeasureSpec, 0, child.measuredWidth)
+                val childHeightMeasureSpec = getChildMeasureSpec(heightMeasureSpec, 0, allSameRowHeight - borderWidth)
+                child.measure(childWidthMeasureSpec, childHeightMeasureSpec)
+            }
+        }
+    }
+
+    private fun measureRow(row: Int, widthMeasureSpec: Int, heightMeasureSpec: Int):Int{
+        var childWidthMeasureSpec = 0
+        var childHeightMeasureSpec = 0
+        var lp = mTitleView.layoutParams
+        val viewIndexVal = (row + 1) * dataSource.numOfColumn() + 1
+        var viewIndex = (row + 1) * dataSource.numOfColumn() + 1
+        var unMeasureViews = mutableListOf<View>()
+        var allExactlyWidth = 0//自定义的宽度
+        var rowViews = mutableListOf<View>()
+        val columnCount = dataSource.numOfColumn()
+        for (columnIndex in 0 until columnCount){
+            val child = getChildAt(viewIndex)
+            lp = child.layoutParams
+            val cWidth = dataSource.widthOfCell(columnIndex)
+            if (cWidth == -1){
+                unMeasureViews.add(child)
+            } else {
+                childWidthMeasureSpec = getChildMeasureSpec(widthMeasureSpec, borderWidth, cWidth)
+                childHeightMeasureSpec = getChildMeasureSpec(widthMeasureSpec, borderWidth, lp.height)
+                child.measure(childWidthMeasureSpec, childHeightMeasureSpec)
+                allExactlyWidth += child.measuredWidth
+            }
+            rowViews.add(child)
+            viewIndex ++
+        }
+        val canDistributionWidth = measuredWidth - outSideBorderWidth * 2 - borderWidth * (dataSource.numOfColumn() - 1) - allExactlyWidth
+        val childFillModeWidth = canDistributionWidth / unMeasureViews.count()
+
+        unMeasureViews.forEach {
+            lp = it.layoutParams
+            childWidthMeasureSpec = getChildMeasureSpec(widthMeasureSpec, borderWidth, childFillModeWidth)
+            childHeightMeasureSpec = getChildMeasureSpec(widthMeasureSpec, borderWidth, lp.height)
+            it.measure(childWidthMeasureSpec, childHeightMeasureSpec)
+        }
+        //处理横向合并
+        var columnIndex = 0
+        var lastId = ""
+        rowViews.forEach {child ->
+            val currentId = dataSource.idOfCell(row, columnIndex)
+            if (columnIndex > 0){
+                if (lastId == currentId){
+                    child.visibility = View.GONE
+                }
+            }
+            if (child.visibility != View.GONE) {
+
+            }
+            resetCellWidth(currentId, viewIndexVal, child, columnIndex, row, widthMeasureSpec, heightMeasureSpec)
+            lastId = currentId
+            columnIndex ++
+        }
+
+        var columnHeight = getRowHeight(row)
+        columnIndex = 0
+
+        rowViews.forEach {
+            childWidthMeasureSpec = getChildMeasureSpec(widthMeasureSpec, 0, it.measuredWidth)
+            childHeightMeasureSpec = getChildMeasureSpec(widthMeasureSpec, 0, columnHeight)
+            it.measure(childWidthMeasureSpec, childHeightMeasureSpec)
+        }
+
+
+
+        return columnHeight
+    }
+
+    private fun isTheFirstSameRow(row: Int, columnIndex:Int, view:View? = null):Boolean{
+        val currentId = dataSource.idOfCell(row, columnIndex)
+        val rowCount = dataSource.numOfRow()
+        var isFirst = row == 0
+        if (row > 0){
+            val lastRowId = dataSource.idOfCell(row - 1, columnIndex)
+            isFirst = currentId != lastRowId
+        }
+        var hasNextSame = false
+        if (isFirst){
+            if (row < rowCount - 1){
+                val nextRowId = dataSource.idOfCell(row + 1, columnIndex)
+                if (currentId == nextRowId){
+//                    it.visibility = View.GONE
+                    hasNextSame = true
+                }
+            }
+        } else {
+            view?.visibility = View.GONE
+        }
+        return hasNextSame && isFirst
+    }
+
+    private fun getRowHeight(row: Int):Int{
+        var columnHeight = 0
+        val columnCount = dataSource.numOfColumn()
+        for (columnIndex in 0 until columnCount) {
+            val currentId = dataSource.idOfCell(row, columnIndex)
+            var needCountHeight = !isTheFirstSameRow(row, columnIndex)
+            if (needCountHeight) {
+                if (row > 0) {
+                    val lastRowId = dataSource.idOfCell(row - 1, columnIndex)
+                    if (currentId == lastRowId) {
+                        needCountHeight = false
+                    }
+                }
+            }
+            if (needCountHeight) {
+                val index = (row + 1) * columnCount + 1 + columnIndex
+                val child = getChildAt(index)
+                columnHeight = Math.max(child.measuredHeight, columnHeight)
+            }
+        }
+        return columnHeight
+    }
+
+    private fun resetCellWidth(currentId:String, viewIndex:Int, child:View, columnIndex:Int, row:Int, widthMeasureSpec: Int, heightMeasureSpec: Int){
+        if (row == 2){
+            Log.d("", "")
+        }
+        val columnCount = dataSource.numOfColumn()
+        if (columnIndex < columnCount - 1){
+            for (column in columnIndex + 1 until columnCount){
+                val otherId = dataSource.idOfCell(row, column)
+                if (currentId == otherId){
+                    val otherView = getChildAt(viewIndex + column)
+                    val childWidthMeasureSpec = getChildMeasureSpec(widthMeasureSpec, 0, child.measuredWidth + borderWidth + otherView.measuredWidth)
+                    val childHeightMeasureSpec = getChildMeasureSpec(widthMeasureSpec, 0, child.measuredHeight)
+                    child.measure(childWidthMeasureSpec, childHeightMeasureSpec)
+                }else {
+                    break
+                }
+            }
+        }
+    }
+
+    override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+        var cl = outSideBorderWidth
+        var cr = 0
+        var ct = outSideBorderWidth
+        var cb = 0
+        cr = cl + mTitleView.measuredWidth
+        cb = ct + mTitleView.measuredHeight
+        mTitleView.layout(cl, ct, cr, cb)
+        var viewIndex = 1
+        cl = outSideBorderWidth
+        ct = cb + borderWidth
+        for (column in 0 until dataSource.numOfColumn()){
+            val child = getChildAt(viewIndex)
+            cr = cl + child.measuredWidth
+            cb = ct + child.measuredHeight
+            child.layout(cl, ct, cr, cb)
+            viewIndex ++
+            cl = cr + borderWidth
+        }
+        for (row in 0 until dataSource.numOfRow()){
+            ct = cb + borderWidth
+            cl = outSideBorderWidth
+            var rowHeight = 0
+            for (column in 0 until dataSource.numOfColumn()){
+                val child = getChildAt(viewIndex)
+                if (child.visibility != View.GONE) {
+                    cr = cl + child.measuredWidth
+                    cb = ct + child.measuredHeight
+                    rowHeight = child.measuredHeight
+                    child.layout(cl, ct, cr, cb)
+                    cl = cr + borderWidth
+                }else {
+                    val currentId = dataSource.idOfCell(row, column)
+
+                    if (row > 0){
+                        val lastRowId = dataSource.idOfCell(row - 1, column)
+                        if (lastRowId == currentId){
+                            cr = cl + child.measuredWidth
+                            cl = cr + borderWidth
+                        }
+                    }
+                }
+                viewIndex++
+            }
+            cb = ct + rowHeight
+        }
     }
 
     private fun buildTextView(): TextView {
         val tv = TextView(context)
-        tv.gravity = Gravity.CENTER
+        tv.gravity = textGravity
         tv.setBackgroundColor(Color.WHITE)
-        val marign = MarginLayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        marign.topMargin = borderWidth
-        marign.leftMargin = borderWidth
-        marign.rightMargin = borderWidth
-        marign.bottomMargin = borderWidth
-        tv.layoutParams = marign
+        tv.layoutParams = MarginLayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
         return tv
-    }
-
-    private fun calFill() {
-
-        var fillCount = 0
-        var knowUseWidth = 0
-        for (column in 0 until dataSource.numOfColumn()) {
-            val w = dataSource.widthOfCell(column)
-            if (w == -1) {
-                fillCount++
-            } else {
-                knowUseWidth += w //getChildAt(1 + column).measuredWidth
-            }
-        }
-        knowUseWidth += (dataSource.numOfColumn() + 1) * borderWidth
-        fillColumnWidth = (width - knowUseWidth) / fillCount
-
-    }
-
-    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-
-        val widthMode = MeasureSpec.getMode(widthMeasureSpec)
-        val heightMode = MeasureSpec.getMode(heightMeasureSpec)
-        val sizeWidth = MeasureSpec.getSize(widthMeasureSpec)
-        val sizeHeight = MeasureSpec.getSize(heightMeasureSpec)
-
-
-        // 计算出所有的childView的宽和高
-        measureChildren(widthMeasureSpec, heightMeasureSpec)
-        // 记录如果是wrap_content是设置的宽和高
-
-        var width = 0
-        var height = 0
-
-        val cCount = childCount
-
-        var cWidth = 0
-        var cHeight = 0
-        var cParams: MarginLayoutParams? = null
-
-        var allHeight = 0
-
-        var allWidth = 0
-
-        var columnIndex = 0
-
-        val columnCount = dataSource.numOfColumn()
-
-        var columnHeight = 0
-
-        for (i in 0 until cCount) {
-            val childView = getChildAt(i)
-            cWidth = childView.measuredWidth
-            cHeight = childView.measuredHeight
-            if (i == 0) {
-                //计算title的高度
-                allHeight += cHeight + borderWidth
-            } else {
-                if (!cacheResetView.contains(childView)) {
-                    columnHeight = Math.max(cHeight + borderWidth, columnHeight)
-                }
-                columnIndex++
-                if (columnIndex == columnCount) {
-                    columnIndex = 0
-                    allHeight += columnHeight
-                    columnHeight = 0
-                }
-            }
-        }
-
-        width = allWidth
-        height = allHeight + borderWidth
-
-        setMeasuredDimension(
-            if (widthMode == View.MeasureSpec.EXACTLY)
-                sizeWidth
-            else
-                width, if (heightMode == View.MeasureSpec.EXACTLY)
-                sizeHeight
-            else
-                height
-        )
-    }
-
-    override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
-        map.clear()
-        val cCount = childCount
-        var columnCount = dataSource.numOfColumn()
-
-
-        var cWidth = 0
-        var cHeight = 0
-
-        var rowIndex = 0
-        if (cCount > 0) {
-            val titleView = getChildAt(0)
-            cWidth = titleView.measuredWidth
-            cHeight = titleView.measuredHeight
-            titleView.layout(borderWidth, borderWidth, width - borderWidth, cHeight + borderWidth)
-        }
-        var ct = borderWidth + borderWidth + cHeight
-
-        for (i in 1 until cCount step columnCount) {
-            var rowHeight = 0
-
-            var realRowHeight = 0
-            for (j in 0 until columnCount) {
-                val childView = getChildAt(j + i)
-                if (cacheResetView.contains(childView)) {
-                    continue
-                }
-                cHeight = childView.measuredHeight
-                realRowHeight = Math.max(realRowHeight, cHeight)
-                rowHeight = Math.max(rowHeight, cHeight + borderWidth)
-            }
-
-            var cl = 0
-            var cr = 0
-            var cb = 0
-
-            for (j in 0 until columnCount) {
-                val childView = getChildAt(j + i)
-                cWidth = childView.measuredWidth
-                cl += borderWidth
-                cb = ct + realRowHeight
-                val w = dataSource.widthOfCell(j)
-                if (w == -1) {
-                    cr = cl + fillColumnWidth
-                } else {
-                    cr = cl + cWidth
-                }
-
-                childView.layout(cl, ct, cr, cb)
-                if (rowIndex > 0) {
-                    val cellId = dataSource.idOfCell(rowIndex - 1, j)
-//                    Log.e("TAG", "$rowIndex-$j==$cellId")
-                    if (map.containsKey(cellId)) {
-                        val cacheView = map.get(cellId)!!
-//                        cacheView.setBackgroundColor(Color.RED)
-                        val expendWdith = if (w == -1) fillColumnWidth else cWidth
-                        if (cacheView.right >= cr) {
-                            cacheView.layout(
-                                cacheView.left,
-                                cacheView.top,
-                                cacheView.right,
-                                cacheView.bottom + realRowHeight + borderWidth
-                            )
-                        } else {
-                            cacheView.layout(
-                                cacheView.left,
-                                cacheView.top,
-                                cacheView.right + expendWdith + borderWidth,
-                                cacheView.bottom
-                            )
-                        }
-                        childView.visibility = View.GONE
-                        cacheResetView.add(cacheView)
-                        if (resetMap.containsKey(cacheView)) {
-                            resetMap.remove(cacheView)
-                        }
-                        resetMap.put(
-                            cacheView,
-                            Size(cacheView.right - cacheView.left, cacheView.bottom - cacheView.top)
-                        )
-                    } else {
-                        map.put(cellId, childView)
-
-                    }
-                }
-                cl = cr //- borderWidth
-
-            }
-            ct += rowHeight
-            rowIndex++
-
-        }
-
-        reset()
-    }
-
-    private val cacheResetView = mutableListOf<View>()
-
-    private fun reset() {
-        if (resetSize) {
-            resetSize = false
-            for (key in resetMap.keys) {
-                val lp = key.layoutParams
-                lp.width = resetMap.get(key)!!.width
-                lp.height = resetMap.get(key)!!.height
-                key.layoutParams = lp
-            }
-        }
     }
 
 

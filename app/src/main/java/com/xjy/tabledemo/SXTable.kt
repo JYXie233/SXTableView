@@ -1,6 +1,7 @@
 package com.xjy.tabledemo
 
 import android.content.Context
+import android.graphics.Color
 import android.os.Build
 import android.support.annotation.RequiresApi
 import android.util.AttributeSet
@@ -35,15 +36,18 @@ class SXTable: SXTableView, SXTableDataSource {
     }
 
     override fun configCell(textView: TextView, rowIndex: Int, columnIndex: Int) {
+        textView.text = "$rowIndex - $columnIndex"
         val item = data[rowIndex]
         when(columnIndex){
             //第一行显示序号
             0-> textView.text = item.ordernumber
+            2-> textView.text = "Hello WOlrdashuidhas"
         }
+
     }
 
     override fun configTitle(textView: TextView) {
-
+        textView.setBackgroundColor(Color.WHITE)
     }
 
     override fun titleOfColumn(columnIndex: Int): String {
@@ -63,12 +67,26 @@ class SXTable: SXTableView, SXTableDataSource {
     }
 
     override fun idOfCell(rowIndex: Int, columnIndex: Int): String {
+        if (columnIndex == 2 && rowIndex > 4 && rowIndex < 8){
+            return "PY"
+        }
+        if (rowIndex == 2 && columnIndex < 2){
+            return "Hello"
+        }
+        if (rowIndex == 2 && columnIndex > 2){
+            return "Hello2"
+        }
+
+        if (rowIndex == 4 && columnIndex > 1 && columnIndex < 4){
+            return "Hello4"
+        }
+
         if (columnIndex == 0){
-            return data[rowIndex].ordernumber
+//            return data[rowIndex].ordernumber
         }
-        if (columnIndex == 2){
-            return "${data[rowIndex].ordernumber}${data[rowIndex].copy}"
-        }
+
+
+
         return super.idOfCell(rowIndex, columnIndex)
     }
 
