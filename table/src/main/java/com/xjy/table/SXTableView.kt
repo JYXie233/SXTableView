@@ -11,6 +11,8 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
+import android.view.animation.AlphaAnimation
+import android.view.animation.LayoutAnimationController
 import android.widget.TextView
 
 open class SXTableView : ViewGroup {
@@ -21,7 +23,7 @@ open class SXTableView : ViewGroup {
     //外边距
     var outSideBorderWidth = Util.dip2px(context, 5)
     //文字方向
-    var textGravity:Int = Gravity.CENTER
+    var textGravity: Int = Gravity.CENTER
 
     constructor(context: Context?) : super(context)
     constructor(context: Context?, attrs: AttributeSet?) : super(context, attrs)
@@ -37,7 +39,6 @@ open class SXTableView : ViewGroup {
     private val columnClickListeners = mutableListOf<SXTableColumnClick>()
 
 
-
     private val mTitleView by lazy {
         val tv = buildTextView()
         val lp = tv.layoutParams
@@ -47,18 +48,13 @@ open class SXTableView : ViewGroup {
 
 
     init {
-
-        viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
-            @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
-            @RequiresApi(Build.VERSION_CODES.JELLY_BEAN)
-            override fun onGlobalLayout() {
-                reload()
-                viewTreeObserver.removeOnGlobalLayoutListener(this)
-            }
-
-        })
+        val alphaAnimation = AlphaAnimation(0f, 1f)
+        alphaAnimation.duration = 200
+        val animationController = LayoutAnimationController(alphaAnimation, 0.5f)
+        animationController.order = LayoutAnimationController.ORDER_NORMAL
+        this.layoutAnimation = animationController
+        reload()
     }
-
 
 
     fun addColumnClickListener(column: Int, listener: SXOnTableColumnClickListener) {
@@ -71,14 +67,14 @@ open class SXTableView : ViewGroup {
         addView(mTitleView, viewIndex)
         mTitleView.text = dataSource.title()
         dataSource.configTitle(mTitleView)
-        viewIndex ++
+        viewIndex++
 
         for (column in 0 until dataSource.numOfColumn()) {
             val tv = buildTextView()
             tv.text = dataSource.titleOfColumn(column)
             dataSource.configColumnHeader(tv, column)
             addView(tv, viewIndex)
-            viewIndex ++
+            viewIndex++
         }
 
         for (row in 0 until dataSource.numOfRow()) {
@@ -88,7 +84,7 @@ open class SXTableView : ViewGroup {
                 tv.tag = row
                 dataSource.configCell(tv, row, column)
                 columnClickListeners.forEach {
-                    if (it.column == column){
+                    if (it.column == column) {
                         tv.setOnClickListener(it)
                     }
                 }
@@ -111,11 +107,11 @@ open class SXTableView : ViewGroup {
 
         allHeight += columnHeaderHeight
 
-        for (row in 0 until dataSource.numOfRow()){
+        for (row in 0 until dataSource.numOfRow()) {
             allHeight += measureRow(row, widthMeasureSpec, heightMeasureSpec) + borderWidth
         }
 
-        for (row in 0 until dataSource.numOfRow()){
+        for (row in 0 until dataSource.numOfRow()) {
             measureRowFix(row, widthMeasureSpec, heightMeasureSpec)
         }
 
@@ -123,15 +119,19 @@ open class SXTableView : ViewGroup {
 
     }
 
-    private fun measureTitle(widthMeasureSpec: Int, heightMeasureSpec: Int){
-        val childWidthMeasureSpec = getChildMeasureSpec(widthMeasureSpec,
-            paddingLeft + paddingRight + outSideBorderWidth * 2, LayoutParams.MATCH_PARENT)
-        val childHeightMeasureSpec = getChildMeasureSpec(heightMeasureSpec,
-            paddingTop + paddingBottom, LayoutParams.WRAP_CONTENT)
+    private fun measureTitle(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val childWidthMeasureSpec = getChildMeasureSpec(
+            widthMeasureSpec,
+            paddingLeft + paddingRight + outSideBorderWidth * 2, LayoutParams.MATCH_PARENT
+        )
+        val childHeightMeasureSpec = getChildMeasureSpec(
+            heightMeasureSpec,
+            paddingTop + paddingBottom, LayoutParams.WRAP_CONTENT
+        )
         mTitleView.measure(childWidthMeasureSpec, childHeightMeasureSpec)
     }
 
-    private fun measureColumnHeader(widthMeasureSpec: Int, heightMeasureSpec: Int):Int{
+    private fun measureColumnHeader(widthMeasureSpec: Int, heightMeasureSpec: Int): Int {
         var childWidthMeasureSpec = 0
         var childHeightMeasureSpec = 0
         var lp = mTitleView.layoutParams
@@ -139,22 +139,25 @@ open class SXTableView : ViewGroup {
         var unMeasureViews = mutableListOf<View>()
         var allExactlyWidth = 0//自定义的宽度
         var rowViews = mutableListOf<View>()
-        for (columnIndex in 0 until dataSource.numOfColumn()){
+        for (columnIndex in 0 until dataSource.numOfColumn()) {
             val child = getChildAt(viewIndex)
-            lp = child.layoutParams
-            val cWidth = dataSource.widthOfCell(columnIndex)
-            if (cWidth == -1){
-                unMeasureViews.add(child)
-            } else {
-                childWidthMeasureSpec = getChildMeasureSpec(widthMeasureSpec, borderWidth, cWidth)
-                childHeightMeasureSpec = getChildMeasureSpec(widthMeasureSpec, borderWidth, lp.height)
-                child.measure(childWidthMeasureSpec, childHeightMeasureSpec)
-                allExactlyWidth += child.measuredWidth
+            if (child != null) {
+                lp = child.layoutParams
+                val cWidth = dataSource.widthOfCell(columnIndex)
+                if (cWidth == -1) {
+                    unMeasureViews.add(child)
+                } else {
+                    childWidthMeasureSpec = getChildMeasureSpec(widthMeasureSpec, borderWidth, cWidth)
+                    childHeightMeasureSpec = getChildMeasureSpec(widthMeasureSpec, borderWidth, lp.height)
+                    child.measure(childWidthMeasureSpec, childHeightMeasureSpec)
+                    allExactlyWidth += child.measuredWidth
+                }
+                rowViews.add(child)
             }
-            rowViews.add(child)
-            viewIndex ++
+            viewIndex++
         }
-        val canDistributionWidth = measuredWidth - outSideBorderWidth * 2 - borderWidth * (dataSource.numOfColumn() - 1) - allExactlyWidth
+        val canDistributionWidth =
+            measuredWidth - outSideBorderWidth * 2 - borderWidth * (dataSource.numOfColumn() - 1) - allExactlyWidth
         val childFillModeWidth = canDistributionWidth / unMeasureViews.count()
 
         unMeasureViews.forEach {
@@ -200,7 +203,7 @@ open class SXTableView : ViewGroup {
         }
     }
 
-    private fun measureRow(row: Int, widthMeasureSpec: Int, heightMeasureSpec: Int):Int{
+    private fun measureRow(row: Int, widthMeasureSpec: Int, heightMeasureSpec: Int): Int {
         var childWidthMeasureSpec = 0
         var childHeightMeasureSpec = 0
         var lp = mTitleView.layoutParams
@@ -210,11 +213,11 @@ open class SXTableView : ViewGroup {
         var allExactlyWidth = 0//自定义的宽度
         var rowViews = mutableListOf<View>()
         val columnCount = dataSource.numOfColumn()
-        for (columnIndex in 0 until columnCount){
+        for (columnIndex in 0 until columnCount) {
             val child = getChildAt(viewIndex)
             lp = child.layoutParams
             val cWidth = dataSource.widthOfCell(columnIndex)
-            if (cWidth == -1){
+            if (cWidth == -1) {
                 unMeasureViews.add(child)
             } else {
                 childWidthMeasureSpec = getChildMeasureSpec(widthMeasureSpec, borderWidth, cWidth)
@@ -223,9 +226,10 @@ open class SXTableView : ViewGroup {
                 allExactlyWidth += child.measuredWidth
             }
             rowViews.add(child)
-            viewIndex ++
+            viewIndex++
         }
-        val canDistributionWidth = measuredWidth - outSideBorderWidth * 2 - borderWidth * (dataSource.numOfColumn() - 1) - allExactlyWidth
+        val canDistributionWidth =
+            measuredWidth - outSideBorderWidth * 2 - borderWidth * (dataSource.numOfColumn() - 1) - allExactlyWidth
         val childFillModeWidth = canDistributionWidth / unMeasureViews.count()
 
         unMeasureViews.forEach {
@@ -237,10 +241,10 @@ open class SXTableView : ViewGroup {
         //处理横向合并
         var columnIndex = 0
         var lastId = ""
-        rowViews.forEach {child ->
+        rowViews.forEach { child ->
             val currentId = dataSource.idOfCell(row, columnIndex)
-            if (columnIndex > 0){
-                if (lastId == currentId){
+            if (columnIndex > 0) {
+                if (lastId == currentId) {
                     child.visibility = View.GONE
                 }
             }
@@ -249,7 +253,7 @@ open class SXTableView : ViewGroup {
             }
             resetCellWidth(currentId, viewIndexVal, child, columnIndex, row, widthMeasureSpec, heightMeasureSpec)
             lastId = currentId
-            columnIndex ++
+            columnIndex++
         }
 
         var columnHeight = getRowHeight(row)
@@ -266,19 +270,19 @@ open class SXTableView : ViewGroup {
         return columnHeight
     }
 
-    private fun isTheFirstSameRow(row: Int, columnIndex:Int, view:View? = null):Boolean{
+    private fun isTheFirstSameRow(row: Int, columnIndex: Int, view: View? = null): Boolean {
         val currentId = dataSource.idOfCell(row, columnIndex)
         val rowCount = dataSource.numOfRow()
         var isFirst = row == 0
-        if (row > 0){
+        if (row > 0) {
             val lastRowId = dataSource.idOfCell(row - 1, columnIndex)
             isFirst = currentId != lastRowId
         }
         var hasNextSame = false
-        if (isFirst){
-            if (row < rowCount - 1){
+        if (isFirst) {
+            if (row < rowCount - 1) {
                 val nextRowId = dataSource.idOfCell(row + 1, columnIndex)
-                if (currentId == nextRowId){
+                if (currentId == nextRowId) {
 //                    it.visibility = View.GONE
                     hasNextSame = true
                 }
@@ -289,7 +293,7 @@ open class SXTableView : ViewGroup {
         return hasNextSame && isFirst
     }
 
-    private fun getRowHeight(row: Int):Int{
+    private fun getRowHeight(row: Int): Int {
         var columnHeight = 0
         val columnCount = dataSource.numOfColumn()
         for (columnIndex in 0 until columnCount) {
@@ -312,20 +316,32 @@ open class SXTableView : ViewGroup {
         return columnHeight
     }
 
-    private fun resetCellWidth(currentId:String, viewIndex:Int, child:View, columnIndex:Int, row:Int, widthMeasureSpec: Int, heightMeasureSpec: Int){
-        if (row == 2){
+    private fun resetCellWidth(
+        currentId: String,
+        viewIndex: Int,
+        child: View,
+        columnIndex: Int,
+        row: Int,
+        widthMeasureSpec: Int,
+        heightMeasureSpec: Int
+    ) {
+        if (row == 2) {
             Log.d("", "")
         }
         val columnCount = dataSource.numOfColumn()
-        if (columnIndex < columnCount - 1){
-            for (column in columnIndex + 1 until columnCount){
+        if (columnIndex < columnCount - 1) {
+            for (column in columnIndex + 1 until columnCount) {
                 val otherId = dataSource.idOfCell(row, column)
-                if (currentId == otherId){
+                if (currentId == otherId) {
                     val otherView = getChildAt(viewIndex + column)
-                    val childWidthMeasureSpec = getChildMeasureSpec(widthMeasureSpec, 0, child.measuredWidth + borderWidth + otherView.measuredWidth)
+                    val childWidthMeasureSpec = getChildMeasureSpec(
+                        widthMeasureSpec,
+                        0,
+                        child.measuredWidth + borderWidth + otherView.measuredWidth
+                    )
                     val childHeightMeasureSpec = getChildMeasureSpec(widthMeasureSpec, 0, child.measuredHeight)
                     child.measure(childWidthMeasureSpec, childHeightMeasureSpec)
-                }else {
+                } else {
                     break
                 }
             }
@@ -343,19 +359,19 @@ open class SXTableView : ViewGroup {
         var viewIndex = 1
         cl = outSideBorderWidth
         ct = cb + borderWidth
-        for (column in 0 until dataSource.numOfColumn()){
+        for (column in 0 until dataSource.numOfColumn()) {
             val child = getChildAt(viewIndex)
             cr = cl + child.measuredWidth
             cb = ct + child.measuredHeight
             child.layout(cl, ct, cr, cb)
-            viewIndex ++
+            viewIndex++
             cl = cr + borderWidth
         }
-        for (row in 0 until dataSource.numOfRow()){
+        for (row in 0 until dataSource.numOfRow()) {
             ct = cb + borderWidth
             cl = outSideBorderWidth
             var rowHeight = 0
-            for (column in 0 until dataSource.numOfColumn()){
+            for (column in 0 until dataSource.numOfColumn()) {
                 val child = getChildAt(viewIndex)
                 if (child.visibility != View.GONE) {
                     cr = cl + child.measuredWidth
@@ -363,9 +379,8 @@ open class SXTableView : ViewGroup {
                     rowHeight = child.measuredHeight
                     child.layout(cl, ct, cr, cb)
                     cl = cr + borderWidth
-                }else {
+                } else {
                     val currentId = dataSource.idOfCell(row, column)
-
                     if (row > 0){
                         val lastRowId = dataSource.idOfCell(row - 1, column)
                         if (lastRowId == currentId){

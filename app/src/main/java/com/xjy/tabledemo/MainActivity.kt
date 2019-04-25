@@ -13,19 +13,19 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         val table = findViewById<SXTable>(R.id.table)
-
+        val list = mutableListOf<TaskInfoList>()
+        for (i in 0..2){
+            list.add(build(i))
+        }
+        val model = NorHandlingDetail(list = list)
         table.addColumnClickListener(2, object : SXOnTableColumnClickListener {
             override fun onColumnClick(row: Int) {
-
+                table.setModel(model)
                 val model = table.getRowData(row)
                 Log.d("Click", "$row:${model.ordernumber}")
             }
         })
-        val list = mutableListOf<TaskInfoList>()
-        for (i in 0..5){
-            list.add(build(i))
-        }
-        val model = NorHandlingDetail(list = list)
+
         table.setModel(model)
     }
 

@@ -35,6 +35,11 @@ class SXTable: SXTableView, SXTableDataSource {
         return data.count()
     }
 
+    override fun configColumnHeader(textView: TextView, columnIndex: Int) {
+        textView.setPadding(10, 10, 10, 10)
+        textView.setBackgroundColor(resources.getColor(R.color.colorPrimary))
+    }
+
     override fun configCell(textView: TextView, rowIndex: Int, columnIndex: Int) {
         textView.text = "$rowIndex - $columnIndex"
         val item = data[rowIndex]
@@ -43,11 +48,12 @@ class SXTable: SXTableView, SXTableDataSource {
             0-> textView.text = item.ordernumber
             2-> textView.text = "Hello WOlrdashuidhas"
         }
-
+        textView.setPadding(10, 10, 10, 10)
     }
 
     override fun configTitle(textView: TextView) {
-        textView.setBackgroundColor(Color.WHITE)
+        textView.setBackgroundColor(resources.getColor(R.color.colorPrimary))
+        textView.setPadding(10, 50, 10, 50)
     }
 
     override fun titleOfColumn(columnIndex: Int): String {
@@ -67,12 +73,15 @@ class SXTable: SXTableView, SXTableDataSource {
     }
 
     override fun idOfCell(rowIndex: Int, columnIndex: Int): String {
+        if (rowIndex < 5 && columnIndex == 2){
+            return "Hello"
+        }
+
+
         if (columnIndex == 2 && rowIndex > 4 && rowIndex < 8){
             return "PY"
         }
-        if (rowIndex == 2 && columnIndex < 2){
-            return "Hello"
-        }
+
         if (rowIndex == 2 && columnIndex > 2){
             return "Hello2"
         }
@@ -82,10 +91,8 @@ class SXTable: SXTableView, SXTableDataSource {
         }
 
         if (columnIndex == 0){
-//            return data[rowIndex].ordernumber
+            return data[rowIndex].ordernumber
         }
-
-
 
         return super.idOfCell(rowIndex, columnIndex)
     }

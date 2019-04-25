@@ -16,15 +16,16 @@
             app:layout_constraintLeft_toLeftOf="parent"
             app:layout_constraintRight_toRightOf="parent"
             app:layout_constraintTop_toTopOf="parent"/>
+    <ScrollView android:layout_width="match_parent" android:layout_height="match_parent">
+        <com.xjy.tabledemo.SXTable
 
-    <com.xjy.tabledemo.SXTable
-            android:id="@+id/table"
-            android:layout_margin="10dp"
-            android:background="@color/colorPrimary"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"/>
+                android:id="@+id/table"
+                android:layout_margin="10dp"
+                android:background="@color/colorPrimary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"/>
 
-
+    </ScrollView>
     <com.xjy.lock9view.Lock9View
             android:id="@+id/lock_9_view"
             android:layout_width="match_parent"
@@ -39,6 +40,6 @@
             app:lock9_lineWidth="8dp"
             app:lock9_autoLink="false"
             app:lock9_enableVibrate="true"
-            app:lock9_vibrateTime="20" />
+            app:lock9_vibrateTime="20"/>
 
 </LinearLayout>
