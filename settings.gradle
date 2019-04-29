@@ -1,1 +1,1 @@
-include ':app', ':table', ':lock9view'
+include ':app', ':table'
