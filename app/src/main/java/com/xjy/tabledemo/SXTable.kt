@@ -46,7 +46,7 @@ class SXTable: SXTableView, SXTableDataSource {
         when(columnIndex){
             //第一行显示序号
             0-> textView.text = item.ordernumber
-            2-> textView.text = "Hello WOlrdashuidhas"
+            2-> textView.text = "Hello World"
         }
         textView.setPadding(10, 10, 10, 10)
     }
@@ -69,31 +69,10 @@ class SXTable: SXTableView, SXTableDataSource {
     }
 
     override fun title(): String {
-        return "传阅进度"
+        return "title"
     }
 
     override fun idOfCell(rowIndex: Int, columnIndex: Int): String {
-        if (rowIndex < 5 && columnIndex == 2){
-            return "Hello"
-        }
-
-
-        if (columnIndex == 2 && rowIndex > 4 && rowIndex < 8){
-            return "PY"
-        }
-
-        if (rowIndex == 2 && columnIndex > 2){
-            return "Hello2"
-        }
-
-        if (rowIndex == 4 && columnIndex > 1 && columnIndex < 4){
-            return "Hello4"
-        }
-
-        if (columnIndex == 0){
-            return data[rowIndex].ordernumber
-        }
-
         return super.idOfCell(rowIndex, columnIndex)
     }
 

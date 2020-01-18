@@ -18,7 +18,6 @@
             app:layout_constraintTop_toTopOf="parent"/>
     <ScrollView android:layout_width="match_parent" android:layout_height="match_parent">
         <com.xjy.tabledemo.SXTable
-
                 android:id="@+id/table"
                 android:layout_margin="10dp"
                 android:background="@color/colorPrimary"
